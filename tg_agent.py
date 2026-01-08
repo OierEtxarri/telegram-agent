@@ -75,17 +75,32 @@ class SavedMessagesAgent:
     # ---------- Comandos ----------
     async def _cmd_ayuda(self, event):
         await event.respond(
-            "Comandos:\n"
-            "/canales [filtro]  -> Lista canales+supergrupos recientes (filtro 'contiene').\n"
-            "/setcanal N alias=xxx -> Guarda el elemento N como alias.\n"
-            "/aliases -> Lista aliases guardados.\n"
-            "/delalias xxx -> Borra un alias.\n"
-            '/buscar alias "texto" N -> Busca y reenvía N resultados a guardados.\n'
-            "\n"
-            "Ejemplo:\n"
-            "/canales kubernetes\n"
-            "/setcanal 3 alias=k8s\n"
-            '/buscar k8s "error 500" 5\n'
+            """
+📚 <b>Comandos disponibles</b>:
+────────────────────────────
+
+🔎 <b>/canales [filtro]</b>
+ Lista canales y supergrupos recientes (puedes filtrar por texto).
+
+🏷️ <b>/setcanal N alias=xxx</b>
+ Guarda el canal N de la lista anterior como alias.
+
+📋 <b>/aliases</b>
+ Lista los alias guardados.
+
+❌ <b>/delalias xxx</b>
+ Borra un alias.
+
+🕵️ <b>/buscar alias "texto" N</b>
+ Busca mensajes en el canal del alias y reenvía los N primeros a guardados.
+
+────────────────────────────
+<b>Ejemplo de uso:</b>
+<code>/canales</code>
+<code>/setcanal 1 alias=pelis</code>
+<code>/buscar pelis \"harry potterpython tg_agent.pypython tg_agent.py\" 5</code>
+""",
+            parse_mode="html"
         )
 
     async def _cmd_canales(self, event, filtro_raw: Optional[str]):
@@ -195,11 +210,21 @@ class SavedMessagesAgent:
 
         count = 0
         async for msg in self.client.iter_messages(peer, search=query, limit=limit):
-            # Reenvía el mensaje exacto a guardados. [web:83]
-            await self.client.forward_messages("me", msg, from_peer=peer)  # [web:83]
-            count += 1
+            # Solo reenviar si el mensaje contiene video
+            has_video = False
+            if msg.media:
+                # Video puede estar en msg.video o msg.document con mime_type de video
+                if getattr(msg, "video", None):
+                    has_video = True
+                elif getattr(msg, "document", None):
+                    mime_type = getattr(msg.document, "mime_type", "")
+                    if mime_type.startswith("video/"):
+                        has_video = True
+            if has_video:
+                await self.client.forward_messages("me", msg, from_peer=peer)
+                count += 1
 
-        await event.respond(f"Listo: reenviados {count} mensajes a guardados.")
+        await event.respond(f"Listo: reenviados {count} mensajes de video a guardados.")
 
     # ---------- Router ----------
     async def _on_saved_message(self, event):
